@@ -1,7 +1,7 @@
 const { Sequelize } = require('sequelize');
+
 require('dotenv').config();
 
-// ✅ Create sequelize instance
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'msr_db',
   process.env.DB_USER || 'postgres',
@@ -10,20 +10,31 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
-    logging: process.env.NODE_ENV === 'production' ? false : console.log, // ✅ ADD COMMA HERE
+
+    logging:
+      process.env.NODE_ENV === 'production'
+        ? false
+        : console.log,
+
     pool: {
       max: 20,
       min: 5,
       acquire: 60000,
       idle: 10000
     },
+
     dialectOptions: {
-      ssl: process.env.DB_SSL === 'true' ? {
-        require: true,
-        rejectUnauthorized: false
-      } : false,
+      ssl:
+        process.env.DB_SSL === 'true'
+          ? {
+              require: true,
+              rejectUnauthorized: false
+            }
+          : false,
+
       connectTimeout: 60000
     },
+
     define: {
       timestamps: true,
       underscored: true,
@@ -34,20 +45,21 @@ const sequelize = new Sequelize(
   }
 );
 
-// ✅ Test connection function
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
     console.log('✅ Database connection established successfully.');
     return true;
   } catch (error) {
-    console.error('❌ Unable to connect to the database:', error.message);
+    console.error(
+      '❌ Unable to connect to the database:',
+      error.message
+    );
     return false;
   }
 };
 
-// ✅ EXPORT sequelize instance CORRECTLY
-module.exports = {
-  sequelize,
-  testConnection
-};
+module.exports = sequelize;
+module.exports.sequelize = sequelize;
+module.exports.testConnection = testConnection;
+
