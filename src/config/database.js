@@ -1,5 +1,4 @@
 const { Sequelize } = require('sequelize');
-
 require('dotenv').config();
 
 const sequelize = new Sequelize(
@@ -45,21 +44,27 @@ const sequelize = new Sequelize(
   }
 );
 
-const testConnection = async () => {
+async function testConnection() {
   try {
     await sequelize.authenticate();
+
     console.log('✅ Database connection established successfully.');
+
     return true;
   } catch (error) {
     console.error(
       '❌ Unable to connect to the database:',
       error.message
     );
+
     return false;
   }
-};
+}
 
+/*
+ * Export the Sequelize instance directly.
+ * This avoids CommonJS/Rolldown interop problems on Vercel.
+ */
 module.exports = sequelize;
 module.exports.sequelize = sequelize;
 module.exports.testConnection = testConnection;
-
