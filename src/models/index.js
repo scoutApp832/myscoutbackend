@@ -1,10 +1,14 @@
-// backend/src/models/index.js
-const { sequelize } = require('../config/database');
+
+const database = require('../config/database');
+
+const sequelize =
+  database.sequelize ||
+  database.default ||
+  database;
 
 if (!sequelize) {
   throw new Error('Sequelize instance is not defined.');
 }
-
 // ===============================
 // IMPORT MODELS
 // ===============================
