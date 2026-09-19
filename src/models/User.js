@@ -1,6 +1,37 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
+
+const database = require('../config/database');
+
+console.log('=== MSR DATABASE DEBUG ===');
+console.log('database type:', typeof database);
+console.log('database keys:', Object.keys(database || {}));
+console.log('database.define:', typeof database?.define);
+console.log('database.sequelize:', typeof database?.sequelize);
+console.log('database.default:', typeof database?.default);
+console.log(
+  'database.default.sequelize:',
+  typeof database?.default?.sequelize
+);
+console.log(
+  'database.default.default:',
+  typeof database?.default?.default
+);
+console.log('==========================');
+
 const bcrypt = require('bcryptjs');
+
+const sequelize =
+  database?.sequelize ||
+  database?.default?.sequelize ||
+  database?.default?.default ||
+  database?.default ||
+  database;
+
+console.log('SELECTED SEQUELIZE TYPE:', typeof sequelize);
+console.log(
+  'SELECTED SEQUELIZE DEFINE:',
+  typeof sequelize?.define
+);
 
 if (!sequelize || typeof sequelize.define !== 'function') {
   throw new Error(
