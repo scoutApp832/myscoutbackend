@@ -3,6 +3,8 @@ const database = require('../config/database');
 
 const sequelize =
   database.sequelize ||
+  database.default?.sequelize ||
+  database.default?.default ||
   database.default ||
   database;
 const bcrypt = require('bcryptjs');
