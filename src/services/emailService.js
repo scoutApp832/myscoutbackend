@@ -1,37 +1,223 @@
 // backend/src/services/emailService.js
 
-const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 
 // ============================================
-// EMAIL TRANSPORTER
+// BREVO EMAIL CONFIGURATION
 // ============================================
 
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD
-    },
-    tls: {
-      rejectUnauthorized: false
-    }
-  });
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
+
+const getBrevoApiKey = () => {
+  const apiKey = process.env.BREVO_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      'BREVO_API_KEY is not configured. Add BREVO_API_KEY to the environment variables.'
+    );
+  }
+
+  return apiKey;
 };
 
 // ============================================
-// ✅ SEND WELCOME EMAIL - NEW
+// EMAIL SENDER CONFIGURATION
 // ============================================
+
+const getEmailSender = () => {
+  /*
+   * Preferred:
+   *
+   * EMAIL_FROM=MSR Rwanda <your-verified-email@example.com>
+   *
+   * Or:
+   *
+   * BREVO_FROM_EMAIL=your-verified-email@example.com
+   * BREVO_FROM_NAME=MSR Rwanda
+   */
+
+  const configuredFrom =
+    process.env.EMAIL_FROM ||
+    process.env.BREVO_FROM_EMAIL ||
+    '';
+
+  const configuredName =
+    process.env.BREVO_FROM_NAME ||
+    'MSR Rwanda';
+
+  // Support:
+  // "MSR Rwanda" <email@example.com>
+  const match = configuredFrom.match(
+    /^\s*(?:"?([^"]+)"?)?\s*<([^>]+)>\s*$/
+  );
+
+  if (match) {
+    return {
+      email: match[2].trim(),
+      name: (match[1] || configuredName).trim()
+    };
+  }
+
+  // Support plain email:
+  // email@example.com
+  if (
+    configuredFrom &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(configuredFrom.trim())
+  ) {
+    return {
+      email: configuredFrom.trim(),
+      name: configuredName
+    };
+  }
+
+  /*
+   * Fallback to the old SMTP_USER variable if it still exists.
+   * This allows the application to keep working while the
+   * environment variables are being migrated.
+   */
+  if (
+    process.env.SMTP_USER &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(process.env.SMTP_USER.trim())
+  ) {
+    return {
+      email: process.env.SMTP_USER.trim(),
+      name: configuredName
+    };
+  }
+
+  throw new Error(
+    'Email sender is not configured. Set EMAIL_FROM to a verified Brevo sender.'
+  );
+};
+
+// ============================================
+// SEND EMAIL THROUGH BREVO
+// ============================================
+
+const sendBrevoEmail = async ({
+  to,
+  subject,
+  html,
+  text,
+  attachments = []
+}) => {
+  if (!to) {
+    throw new Error('Recipient email address is required');
+  }
+
+  const apiKey = getBrevoApiKey();
+  const sender = getEmailSender();
+
+  const payload = {
+    sender: {
+      name: sender.name,
+      email: sender.email
+    },
+    to: [
+      {
+        email: to
+      }
+    ],
+    subject,
+    htmlContent: html
+  };
+
+  // Keep plain-text email content when supplied.
+  if (text) {
+    payload.textContent = text;
+  }
+
+  // Brevo expects attachment content as base64.
+  if (attachments.length > 0) {
+    payload.attachment = attachments.map((attachment) => ({
+      name: attachment.filename,
+      content:
+        Buffer.isBuffer(attachment.content)
+          ? attachment.content.toString('base64')
+          : attachment.content
+    }));
+  }
+
+  const response = await fetch(BREVO_API_URL, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'api-key': apiKey,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const responseText = await response.text();
+
+  let responseData = {};
+
+  try {
+    responseData = responseText ? JSON.parse(responseText) : {};
+  } catch (parseError) {
+    responseData = {
+      raw: responseText
+    };
+  }
+
+  if (!response.ok) {
+    const errorMessage =
+      responseData?.message ||
+      responseData?.code ||
+      responseData?.error ||
+      responseText ||
+      `Brevo API request failed with status ${response.status}`;
+
+    const error = new Error(
+      `Brevo email error (${response.status}): ${errorMessage}`
+    );
+
+    error.status = response.status;
+    error.response = responseData;
+
+    throw error;
+  }
+
+  return {
+    messageId:
+      responseData?.messageId ||
+      responseData?.messageID ||
+      responseData?.id ||
+      null,
+    response: responseData
+  };
+};
+
+// ============================================
+// VERIFY BREVO EMAIL CONFIGURATION
+// ============================================
+
+async function verifyEmailConnection() {
+  try {
+    getBrevoApiKey();
+    getEmailSender();
+
+    console.log('✅ Brevo email configuration detected');
+    return {
+      success: true,
+      message: 'Brevo email configuration is ready'
+    };
+  } catch (error) {
+    console.error('❌ Brevo email configuration error:', error.message);
+    throw error;
+  }
+}
+
+// ============================================
+// ✅ SEND WELCOME EMAIL
+// ============================================
+
 async function sendWelcomeEmail(user, member, role) {
   try {
-    const transporter = createTransporter();
-    
-    const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    
+    const appUrl =
+      process.env.FRONTEND_URL || 'http://localhost:3000';
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -104,17 +290,19 @@ async function sendWelcomeEmail(user, member, role) {
       </html>
     `;
 
-    const mailOptions = {
-      from: `"MSR Rwanda" <${process.env.SMTP_USER || 'noreply@msr.rw'}>`,
+    const info = await sendBrevoEmail({
       to: user?.email,
       subject: `🎉 Welcome to MyScout Rwanda, ${user?.full_name || 'Scout'}!`,
       html: htmlContent
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Welcome email sent to ${user?.email}`);
-    return { success: true, messageId: info.messageId, to: user?.email };
 
+    return {
+      success: true,
+      messageId: info.messageId,
+      to: user?.email
+    };
   } catch (error) {
     console.error('❌ Welcome email error:', error);
     throw error;
@@ -122,12 +310,15 @@ async function sendWelcomeEmail(user, member, role) {
 }
 
 // ============================================
-// ✅ SEND PASSWORD RESET EMAIL - NEW
+// ✅ SEND PASSWORD RESET EMAIL
 // ============================================
-async function sendPasswordResetEmail({ email, name, resetUrl }) {
+
+async function sendPasswordResetEmail({
+  email,
+  name,
+  resetUrl
+}) {
   try {
-    const transporter = createTransporter();
-    
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -195,17 +386,19 @@ async function sendPasswordResetEmail({ email, name, resetUrl }) {
       </html>
     `;
 
-    const mailOptions = {
-      from: `"MSR Rwanda" <${process.env.SMTP_USER || 'noreply@msr.rw'}>`,
+    const info = await sendBrevoEmail({
       to: email,
       subject: '🔐 Reset Your MyScout Rwanda Password',
       html: htmlContent
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Password reset email sent to ${email}`);
-    return { success: true, messageId: info.messageId, to: email };
 
+    return {
+      success: true,
+      messageId: info.messageId,
+      to: email
+    };
   } catch (error) {
     console.error('❌ Password reset email error:', error);
     throw error;
@@ -218,27 +411,39 @@ async function sendPasswordResetEmail({ email, name, resetUrl }) {
 
 async function sendScoutIDCardPDF(member, pdfBase64) {
   try {
-    const transporter = createTransporter();
-    
     const user = member.user;
-    
+
     if (!user || !user.email) {
-      throw new Error('No email address found for this member');
+      throw new Error(
+        'No email address found for this member'
+      );
     }
-    
-    const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    
-    // ✅ Handle both data:image/png;base64 and raw base64
+
+    const appUrl =
+      process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    // Handle both data:...;base64,... and raw base64
     let base64Data = pdfBase64;
+
     if (pdfBase64 && pdfBase64.includes(',')) {
       base64Data = pdfBase64.split(',')[1];
     }
-    
+
+    if (!base64Data) {
+      throw new Error('PDF data is empty');
+    }
+
     // Convert base64 to buffer
     const pdfBuffer = Buffer.from(base64Data, 'base64');
-    
-    console.log(`📄 PDF Buffer size: ${pdfBuffer.length} bytes (${(pdfBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
-    
+
+    console.log(
+      `📄 PDF Buffer size: ${pdfBuffer.length} bytes (${(
+        pdfBuffer.length /
+        1024 /
+        1024
+      ).toFixed(2)} MB)`
+    );
+
     // Email HTML content
     const htmlContent = `
       <!DOCTYPE html>
@@ -461,47 +666,54 @@ async function sendScoutIDCardPDF(member, pdfBase64) {
       </html>
     `;
 
-    // Email options with PDF attachment
-    const mailOptions = {
-      from: `"MSR Rwanda" <${process.env.SMTP_USER || 'noreply@msr.rw'}>`,
+    const info = await sendBrevoEmail({
       to: user?.email,
       subject: `🎫 Your Scout ID Card - ${member.sin} | MSR Rwanda`,
       html: htmlContent,
       attachments: [
         {
           filename: `Scout_ID_${member.sin}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf'
+          content: pdfBuffer
         }
       ]
+    });
+
+    console.log(
+      `📧 Scout ID Card PDF sent to ${user?.email}`
+    );
+
+    return {
+      success: true,
+      messageId: info.messageId,
+      to: user?.email
     };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`📧 Scout ID Card PDF sent to ${user?.email}`);
-    return { success: true, messageId: info.messageId, to: user?.email };
-
   } catch (error) {
-    console.error('❌ Scout ID Card PDF email error:', error);
+    console.error(
+      '❌ Scout ID Card PDF email error:',
+      error
+    );
     throw error;
   }
 }
 
 // ============================================
-// SEND SCOUT ID CARD EMAIL (without PDF attachment)
+// SEND SCOUT ID CARD EMAIL
+// WITHOUT PDF ATTACHMENT
 // ============================================
 
 async function sendScoutIDCardEmail(member) {
   try {
-    const transporter = createTransporter();
-    
     const user = member.user;
-    
+
     if (!user || !user.email) {
-      throw new Error('No email address found for this member');
+      throw new Error(
+        'No email address found for this member'
+      );
     }
-    
-    const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    
+
+    const appUrl =
+      process.env.FRONTEND_URL || 'http://localhost:3000';
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -723,85 +935,141 @@ async function sendScoutIDCardEmail(member) {
       </html>
     `;
 
-    const mailOptions = {
-      from: `"MSR Rwanda" <${process.env.SMTP_USER || 'noreply@msr.rw'}>`,
+    const textContent = `
+MSR Rwanda - Scout ID Card
+
+Congratulations ${user?.full_name || member.first_name}!
+
+Your membership payment has been approved and your Scout ID Card is now ready.
+
+Scout ID Number (SIN): ${member.sin}
+Name: ${user?.full_name || `${member.first_name} ${member.last_name}`}
+District: ${member.district || 'N/A'}
+Troop: ${member.troop_name || 'N/A'}
+Status: Active
+Issued: ${new Date().toISOString().split('T')[0]}
+
+Log in to your account to view your full Scout ID Card:
+${appUrl}/dashboard
+
+© ${new Date().getFullYear()} MSR Rwanda
+`;
+
+    const info = await sendBrevoEmail({
       to: user?.email,
       subject: `🎫 Your Scout ID Card - ${member.sin} | MSR Rwanda`,
       html: htmlContent,
-      text: `
-        MSR Rwanda - Scout ID Card
+      text: textContent
+    });
 
-        Congratulations ${user?.full_name || member.first_name}!
+    console.log(
+      `📧 Scout ID Card email sent to ${user?.email}`
+    );
 
-        Your membership payment has been approved and your Scout ID Card is now ready.
-
-        Scout ID Number (SIN): ${member.sin}
-        Name: ${user?.full_name || `${member.first_name} ${member.last_name}`}
-        District: ${member.district || 'N/A'}
-        Troop: ${member.troop_name || 'N/A'}
-        Status: Active
-        Issued: ${new Date().toISOString().split('T')[0]}
-
-        Log in to your account to view your full Scout ID Card:
-        ${appUrl}/dashboard
-
-        © ${new Date().getFullYear()} MSR Rwanda
-      `
+    return {
+      success: true,
+      messageId: info.messageId,
+      to: user?.email
     };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`📧 Scout ID Card email sent to ${user?.email}`);
-    return { success: true, messageId: info.messageId, to: user?.email };
-
   } catch (error) {
-    console.error('❌ Scout ID Card email error:', error);
+    console.error(
+      '❌ Scout ID Card email error:',
+      error
+    );
     throw error;
   }
 }
 
 // ============================================
-// BULK EMAILS (for announcements)
+// BULK EMAILS
+// FOR ANNOUNCEMENTS
 // ============================================
 
-async function sendBulkEmails(recipients, announcement, author) {
+async function sendBulkEmails(
+  recipients,
+  announcement,
+  author
+) {
   try {
-    const transporter = createTransporter();
     const results = [];
+
+    // Keep the original batch size.
     const batchSize = 50;
-    
-    console.log(`📧 Sending emails to ${recipients.length} recipients...`);
-    
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      const batch = recipients.slice(i, i + batchSize);
-      console.log(`📧 Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(recipients.length / batchSize)}`);
-      
-      const batchResults = await Promise.allSettled(
-        batch.map(email => sendAnnouncementEmail(email, announcement, author))
+
+    console.log(
+      `📧 Sending emails to ${recipients.length} recipients...`
+    );
+
+    for (
+      let i = 0;
+      i < recipients.length;
+      i += batchSize
+    ) {
+      const batch = recipients.slice(
+        i,
+        i + batchSize
       );
-      
-      batchResults.forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
+
+      console.log(
+        `📧 Processing batch ${
+          Math.floor(i / batchSize) + 1
+        } of ${Math.ceil(
+          recipients.length / batchSize
+        )}`
+      );
+
+      const batchResults =
+        await Promise.allSettled(
+          batch.map((email) =>
+            sendAnnouncementEmail(
+              email,
+              announcement,
+              author
+            )
+          )
+        );
+
+      batchResults.forEach((result) => {
+        if (
+          result.status === 'fulfilled' &&
+          result.value
+        ) {
           results.push(result.value);
         }
       });
-      
+
       if (i + batchSize < recipients.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000)
+        );
       }
     }
-    
-    const successCount = results.filter(r => r?.success).length;
-    const failCount = results.filter(r => r && !r.success).length;
-    
-    console.log(`📧 Email results: ${successCount} sent, ${failCount} failed`);
-    
+
+    const successCount = results.filter(
+      (r) => r?.success
+    ).length;
+
+    const failCount = results.filter(
+      (r) => r && !r.success
+    ).length;
+
+    console.log(
+      `📧 Email results: ${successCount} sent, ${failCount} failed`
+    );
+
     return {
       results,
-      summary: { sent: successCount, failed: failCount, total: results.length }
+      summary: {
+        sent: successCount,
+        failed: failCount,
+        total: results.length
+      }
     };
-    
   } catch (error) {
-    console.error('❌ Bulk email error:', error);
+    console.error(
+      '❌ Bulk email error:',
+      error
+    );
     throw error;
   }
 }
@@ -810,12 +1078,16 @@ async function sendBulkEmails(recipients, announcement, author) {
 // SEND ANNOUNCEMENT EMAIL
 // ============================================
 
-async function sendAnnouncementEmail(to, announcement, author) {
+async function sendAnnouncementEmail(
+  to,
+  announcement,
+  author
+) {
   try {
-    const transporter = createTransporter();
-    
-    const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    
+    const appUrl =
+      process.env.FRONTEND_URL ||
+      'http://localhost:3000';
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -865,20 +1137,30 @@ async function sendAnnouncementEmail(to, announcement, author) {
       </html>
     `;
 
-    const mailOptions = {
-      from: `"MSR Rwanda" <${process.env.SMTP_USER || 'noreply@msr.rw'}>`,
-      to: to,
+    const info = await sendBrevoEmail({
+      to,
       subject: `📢 ${announcement.announcement_type === 'urgent' ? '🚨 URGENT: ' : ''}${announcement.title}`,
       html: htmlContent
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Email sent to ${to}`);
-    return { email: to, success: true, messageId: info.messageId };
 
+    return {
+      email: to,
+      success: true,
+      messageId: info.messageId
+    };
   } catch (error) {
-    console.error(`❌ Failed to send email to ${to}:`, error.message);
-    return { email: to, success: false, error: error.message };
+    console.error(
+      `❌ Failed to send email to ${to}:`,
+      error.message
+    );
+
+    return {
+      email: to,
+      success: false,
+      error: error.message
+    };
   }
 }
 
@@ -887,6 +1169,7 @@ async function sendAnnouncementEmail(to, announcement, author) {
 // ============================================
 
 module.exports = {
+  verifyEmailConnection,
   sendWelcomeEmail,
   sendPasswordResetEmail,
   sendScoutIDCardEmail,
