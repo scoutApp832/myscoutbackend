@@ -48,6 +48,16 @@ async function testConnection() {
   try {
     await sequelize.authenticate();
 
+    // Temporary verification: show which database the backend is actually using.
+    const [result] = await sequelize.query(`
+      SELECT
+        current_database() AS database,
+        current_user AS user,
+        inet_server_addr() AS server
+    `);
+
+    console.log('🔎 Backend database:', result[0]);
+
     console.log('✅ Database connection established successfully.');
 
     return true;

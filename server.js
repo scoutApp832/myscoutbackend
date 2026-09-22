@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -11,6 +10,7 @@ const dotenv = require('dotenv');
 // ============================================
 // LOAD ENVIRONMENT VARIABLES FIRST
 // ============================================
+
 dotenv.config();
 
 const { sequelize, testConnection } = require('./src/config/database');
@@ -219,7 +219,6 @@ const districtController = require('./src/controllers/districtController');
 // ============================================
 
 const app = express();
-
 const PORT = process.env.PORT || 5000;
 
 // ============================================
@@ -251,43 +250,62 @@ uploadDirs.forEach((dir) => {
 // CORS & SECURITY
 // ============================================
 
-app.use(
-  cors({
-    origin:
-      process.env.FRONTEND_URL ||
-      'http://localhost:3000',
+// Allow both production frontend and local development frontend.
+const allowedOrigins = [
+  'https://myscout.onrender.com',
+  'http://localhost:3000'
+];
 
-    credentials: true,
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests without an Origin header
+    // such as server-to-server requests or Postman.
+    if (!origin) {
+      return callback(null, true);
+    }
 
-    methods: [
-      'GET',
-      'POST',
-      'PUT',
-      'DELETE',
-      'PATCH',
-      'OPTIONS'
-    ],
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
 
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Requested-With',
-      'Accept',
-      'Cache-Control',
-      'Pragma',
-      'Expires'
-    ],
+    return callback(
+      new Error(`CORS policy: Origin ${origin} not allowed`),
+      false
+    );
+  },
 
-    exposedHeaders: [
-      'Content-Length',
-      'X-Requested-With'
-    ],
+  credentials: true,
 
-    optionsSuccessStatus: 200
-  })
-);
+  methods: [
+    'GET',
+    'POST',
+    'PUT',
+    'DELETE',
+    'PATCH',
+    'OPTIONS'
+  ],
 
-app.options('*', cors());
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Cache-Control',
+    'Pragma',
+    'Expires'
+  ],
+
+  exposedHeaders: [
+    'Content-Length',
+    'X-Requested-With'
+  ],
+
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+app.options('*', cors(corsOptions));
 
 app.use(
   helmet({
@@ -917,7 +935,7 @@ if (
 
               const match =
                 pathStr.match(
-                  /\/\^\\\/([^*]+)/
+                  /\/\^\\\/([^/]+)/
                 );
 
               if (match) {
@@ -961,10 +979,12 @@ if (
           .sort()
           .map((routePath) => ({
             path: routePath,
+
             methods:
               grouped[routePath].join(
                 ', '
               ),
+
             fullUrl:
               'http://localhost:' +
               PORT +
@@ -974,7 +994,9 @@ if (
       res.json({
         totalRoutes:
           formatted.length,
+
         routes: formatted,
+
         timestamp:
           new Date().toISOString()
       });
@@ -1091,17 +1113,25 @@ if (
 
       res.json({
         success: true,
-        ideaExists: !!Idea,
-        ideaType: typeof Idea,
+
+        ideaExists:
+          !!Idea,
+
+        ideaType:
+          typeof Idea,
+
         ideaKeys:
           Object.keys(Idea || {}),
-        ideaMethods: Idea
-          ? Object.keys(Idea).filter(
-              (key) =>
-                typeof Idea[key] ===
-                'function'
-            )
-          : [],
+
+        ideaMethods:
+          Idea
+            ? Object.keys(Idea).filter(
+                (key) =>
+                  typeof Idea[key] ===
+                  'function'
+              )
+            : [],
+
         hasFindAll:
           !!(
             Idea &&
@@ -1183,10 +1213,15 @@ app.use((req, res) => {
 
   res.status(404).json({
     success: false,
+
     message:
       `Route ${req.method} ${req.url} not found`,
-    path: req.originalUrl,
-    method: req.method
+
+    path:
+      req.originalUrl,
+
+    method:
+      req.method
   });
 });
 
@@ -1208,8 +1243,10 @@ app.use(
     ) {
       return res.status(413).json({
         success: false,
+
         message:
           'File too large. Maximum size is 50MB.',
+
         error:
           'PayloadTooLarge'
       });
@@ -1221,13 +1258,16 @@ app.use(
     ) {
       return res.status(400).json({
         success: false,
+
         message:
           'Validation error',
 
         errors:
           err.errors.map(
             (e) => ({
-              field: e.path,
+              field:
+                e.path,
+
               message:
                 e.message
             })
@@ -1241,13 +1281,16 @@ app.use(
     ) {
       return res.status(400).json({
         success: false,
+
         message:
           'Duplicate entry',
 
         errors:
           err.errors.map(
             (e) => ({
-              field: e.path,
+              field:
+                e.path,
+
               message:
                 e.message
             })
@@ -1261,6 +1304,7 @@ app.use(
     ) {
       return res.status(401).json({
         success: false,
+
         message:
           'Invalid token'
       });
@@ -1272,6 +1316,7 @@ app.use(
     ) {
       return res.status(401).json({
         success: false,
+
         message:
           'Token expired'
       });
@@ -1280,6 +1325,7 @@ app.use(
     if (err.code === '23505') {
       return res.status(400).json({
         success: false,
+
         message:
           'Duplicate entry',
 
@@ -1292,6 +1338,7 @@ app.use(
     if (err.code === '23502') {
       return res.status(400).json({
         success: false,
+
         message:
           'Required field missing',
 
@@ -1313,7 +1360,8 @@ app.use(
 
       ...(process.env.NODE_ENV ===
         'development' && {
-        stack: err.stack
+        stack:
+          err.stack
       })
     });
   }
@@ -1530,7 +1578,7 @@ const shutdown = async () => {
       error
     );
 
-    process.exit(1);
+    process.exit(0);
   }
 };
 

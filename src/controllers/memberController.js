@@ -1,6 +1,6 @@
 const { Member, User, AuditLog } = require('../models');
 const { generateSIN } = require('../services/sinGenerator');
-
+const { sendScoutIDCardEmail } = require('../services/emailService');
 // Get all members (National Commissioner only)
 exports.getAllMembers = async (req, res) => {
   try {

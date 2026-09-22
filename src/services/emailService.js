@@ -138,17 +138,44 @@ const sendBrevoEmail = async ({
           : attachment.content
     }));
   }
+console.log('📧 Connecting to Brevo API...');
+console.log(`📧 Recipient: ${to}`);
+console.log(`📧 Attachment count: ${attachments.length}`);
 
-  const response = await fetch(BREVO_API_URL, {
+const controller = new AbortController();
+
+const timeout = setTimeout(() => {
+  console.error('❌ Brevo API request timed out after 30 seconds');
+  controller.abort();
+}, 30000);
+
+let response;
+
+try {
+  response = await fetch(BREVO_API_URL, {
     method: 'POST',
     headers: {
       accept: 'application/json',
       'api-key': apiKey,
       'content-type': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: controller.signal
   });
 
+  console.log(`📧 Brevo API responded with status: ${response.status}`);
+} catch (error) {
+  if (error.name === 'AbortError') {
+    throw new Error(
+      'Brevo API request timed out after 30 seconds. Check internet connection or Brevo API availability.'
+    );
+  }
+
+  throw error;
+} finally {
+  clearTimeout(timeout);
+}
+ 
   const responseText = await response.text();
 
   let responseData = {};
