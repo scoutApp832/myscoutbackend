@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { protect, isNationalCommissioner, isSuperAdmin, checkPermission, hasAnyPermission } = require('../middleware/auth');
+const {
+  protect,
+  isNationalCommissioner,
+  isSuperAdmin,
+  checkPermission,
+  hasAnyPermission
+} = require('../middleware/auth');
 const nationalController = require('../controllers/nationalController');
 const { sendScoutIDCardPDF } = require('../services/emailService');
 const { Member, User } = require('../models');
@@ -53,38 +59,38 @@ router.post('/members/:id/send-scout-id-pdf', checkPermission('members', 'edit')
   try {
     const { id } = req.params;
     const { pdfBase64 } = req.body;
-    
+
     console.log(`📧 Sending Scout ID PDF for member ${id}`);
-    
+
     if (!pdfBase64) {
       return res.status(400).json({
         success: false,
         message: 'PDF data is required'
       });
     }
-    
+
     const member = await Member.findByPk(id, {
       include: [{ model: User, as: 'user' }]
     });
-    
+
     if (!member) {
       return res.status(404).json({
         success: false,
         message: 'Member not found'
       });
     }
-    
+
     if (!member.user || !member.user.email) {
       return res.status(400).json({
         success: false,
         message: 'Member does not have an email address'
       });
     }
-    
+
     console.log(`📧 Sending email to: ${member.user.email}`);
-    
+
     const emailResult = await sendScoutIDCardPDF(member, pdfBase64);
-    
+
     res.json({
       success: true,
       message: 'Scout ID Card sent to email successfully',
@@ -93,9 +99,10 @@ router.post('/members/:id/send-scout-id-pdf', checkPermission('members', 'edit')
         to: member.user.email
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Send Scout ID PDF error:', error);
+
     res.status(500).json({
       success: false,
       message: 'Failed to send email: ' + error.message,
@@ -111,7 +118,14 @@ router.get('/leaders', nationalController.getLeaders);
 router.post('/leaders', isSuperAdmin, nationalController.createLeader);
 router.put('/leaders/:id', isSuperAdmin, nationalController.updateLeader);
 router.delete('/leaders/:id', isSuperAdmin, nationalController.deleteLeader);
+
+// Existing route - DO NOT REMOVE
 router.patch('/leaders/:id/toggle-status', isSuperAdmin, nationalController.toggleLeaderStatus);
+
+// ✅ ADDED: Compatible with ManageLeaders.jsx
+// Frontend uses: PUT /national/leaders/:id/status
+router.put('/leaders/:id/status', isSuperAdmin, nationalController.toggleLeaderStatus);
+
 router.put('/leaders/:id/permissions', isSuperAdmin, nationalController.updatePermissions);
 
 // ============================================
@@ -169,38 +183,45 @@ router.get('/reports', nationalController.getReports);
 router.get('/reports/:id', nationalController.getReportById);
 
 // ✅ National Commissioner only actions
-router.put('/reports/:id/approve', 
-  checkPermission('reports', 'approve'), 
+router.put(
+  '/reports/:id/approve',
+  checkPermission('reports', 'approve'),
   nationalController.approveReport
 );
 
-router.put('/reports/:id/reject', 
-  checkPermission('reports', 'approve'), 
+router.put(
+  '/reports/:id/reject',
+  checkPermission('reports', 'approve'),
   nationalController.rejectReport
 );
 
-router.post('/reports/:id/publish', 
-  checkPermission('reports', 'edit'), 
+router.post(
+  '/reports/:id/publish',
+  checkPermission('reports', 'edit'),
   nationalController.publishReport
 );
 
-router.put('/reports/:id/archive', 
-  checkPermission('reports', 'edit'), 
+router.put(
+  '/reports/:id/archive',
+  checkPermission('reports', 'edit'),
   nationalController.archiveReport
 );
 
-router.delete('/reports/:id', 
-  isSuperAdmin, 
+router.delete(
+  '/reports/:id',
+  isSuperAdmin,
   nationalController.deleteReport
 );
 
-router.put('/reports/:id', 
-  checkPermission('reports', 'edit'), 
+router.put(
+  '/reports/:id',
+  checkPermission('reports', 'edit'),
   nationalController.updateReport
 );
 
-router.post('/reports/:id/resend', 
-  checkPermission('reports', 'edit'), 
+router.post(
+  '/reports/:id/resend',
+  checkPermission('reports', 'edit'),
   nationalController.resendReport
 );
 
@@ -225,33 +246,39 @@ router.delete('/projects/:id', isSuperAdmin, nationalController.deleteProject);
 // ============================================
 // IDEA ROUTES - FIXED (National Commissioner)
 // ============================================
-router.get('/ideas', 
-  checkPermission('reports', 'view'), 
+router.get(
+  '/ideas',
+  checkPermission('reports', 'view'),
   nationalController.getNationalIdeas
 );
 
-router.get('/ideas/:id', 
-  checkPermission('reports', 'view'), 
+router.get(
+  '/ideas/:id',
+  checkPermission('reports', 'view'),
   nationalController.getNationalIdea
 );
 
-router.put('/ideas/:id/review', 
-  checkPermission('reports', 'approve'), 
+router.put(
+  '/ideas/:id/review',
+  checkPermission('reports', 'approve'),
   nationalController.reviewNationalIdea
 );
 
-router.put('/ideas/:id/status', 
-  checkPermission('reports', 'approve'), 
+router.put(
+  '/ideas/:id/status',
+  checkPermission('reports', 'approve'),
   nationalController.updateIdeaStatus
 );
 
-router.post('/ideas/:id/forward', 
-  checkPermission('reports', 'edit'), 
+router.post(
+  '/ideas/:id/forward',
+  checkPermission('reports', 'edit'),
   nationalController.forwardIdea
 );
 
-router.delete('/ideas/:id', 
-  isSuperAdmin, 
+router.delete(
+  '/ideas/:id',
+  isSuperAdmin,
   nationalController.deleteNationalIdea
 );
 
@@ -273,31 +300,47 @@ router.get('/courses/:id/learners', checkPermission('courses', 'view'), national
 router.get('/announcements', nationalController.getAnnouncements);
 
 // ✅ National Commissioner only actions
-router.post('/announcements', 
-  checkPermission('announcements', 'create'), 
+router.post(
+  '/announcements',
+  checkPermission('announcements', 'create'),
   nationalController.createAnnouncement
 );
 
-router.put('/announcements/:id', 
-  checkPermission('announcements', 'edit'), 
+router.put(
+  '/announcements/:id',
+  checkPermission('announcements', 'edit'),
   nationalController.updateAnnouncement
 );
 
-router.delete('/announcements/:id', 
-  isSuperAdmin, 
+router.delete(
+  '/announcements/:id',
+  isSuperAdmin,
   nationalController.deleteAnnouncement
 );
 
 // ============================================
 // STATISTICS ROUTES
 // ============================================
-router.get('/statistics', checkPermission('statistics', 'view'), nationalController.getStatistics);
-router.get('/statistics/export', checkPermission('statistics', 'export'), nationalController.exportStatistics);
+router.get(
+  '/statistics',
+  checkPermission('statistics', 'view'),
+  nationalController.getStatistics
+);
+
+router.get(
+  '/statistics/export',
+  checkPermission('statistics', 'export'),
+  nationalController.exportStatistics
+);
 
 // ============================================
 // DISTRICT ROUTES
 // ============================================
-router.get('/districts', checkPermission('settings', 'view'), nationalController.getDistricts);
+router.get(
+  '/districts',
+  checkPermission('settings', 'view'),
+  nationalController.getDistricts
+);
 
 console.log('✅ National routes loaded successfully');
 
