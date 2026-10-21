@@ -1,4 +1,4 @@
-const { Member, User, Event, EventRegistration, Report, Idea, Project, Course, CourseEnrollment, Announcement, Notification, District,Unit, Donation } = require('../models');
+const { Member, User, Event, EventRegistration, Report, Idea, Project, Course, CourseEnrollment, Announcement, Notification, District, Unit, Donation } = require('../models');
 const { generateSIN } = require('../services/sinGenerator');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
@@ -15,40 +15,40 @@ exports.getStats = async (req, res) => {
     console.log('📊 Fetching dashboard stats...');
 
     const totalMembers = await Member.count() || 0;
-    const activeMembers = await Member.count({ 
-      where: { membership_status: 'active' } 
+    const activeMembers = await Member.count({
+      where: { membership_status: 'active' }
     }) || 0;
-    
-    const totalLeaders = await User.count({ 
-      where: { 
-        role: ['unit_leader', 'district_commissioner', 'national_commissioner', 'super_admin'] 
-      } 
+
+    const totalLeaders = await User.count({
+      where: {
+        role: ['unit_leader', 'district_commissioner', 'national_commissioner', 'super_admin']
+      }
     }) || 0;
-    
+
     const totalEvents = await Event.count() || 0;
-    
+
     const now = new Date();
-    const upcomingEvents = await Event.count({ 
-      where: { 
+    const upcomingEvents = await Event.count({
+      where: {
         status: ['upcoming', 'published'],
         start_date: { [Op.gte]: now }
-      } 
+      }
     }) || 0;
-    
-    const pendingRegistrations = await Member.count({ 
-      where: { membership_status: 'pending' } 
+
+    const pendingRegistrations = await Member.count({
+      where: { membership_status: 'pending' }
     }) || 0;
-    
-    const pendingReports = await Report.count({ 
-      where: { status: 'pending' } 
+
+    const pendingReports = await Report.count({
+      where: { status: 'pending' }
     }) || 0;
-    
-    const pendingProjects = await Project.count({ 
-      where: { status: 'pending' } 
+
+    const pendingProjects = await Project.count({
+      where: { status: 'pending' }
     }) || 0;
-    
-    const totalDonations = await Donation.sum('amount', { 
-      where: { status: 'completed' } 
+
+    const totalDonations = await Donation.sum('amount', {
+      where: { status: 'completed' }
     }) || 0;
 
     res.json({
@@ -301,10 +301,10 @@ exports.getRecentActivities = async (req, res) => {
     })));
   } catch (error) {
     console.error('Get activities error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to get activities', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get activities',
+      error: error.message
     });
   }
 };
@@ -337,10 +337,10 @@ exports.getUpcomingEvents = async (req, res) => {
     })));
   } catch (error) {
     console.error('Get upcoming events error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to get events', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get events',
+      error: error.message
     });
   }
 };
@@ -378,13 +378,13 @@ exports.getGenderData = async (req, res) => {
   try {
     const males = await Member.count({ where: { gender: 'male' } });
     const females = await Member.count({ where: { gender: 'female' } });
-    const others = await Member.count({ 
-      where: { 
+    const others = await Member.count({
+      where: {
         [Op.or]: [
           { gender: { [Op.notIn]: ['male', 'female'] } },
           { gender: null }
         ]
-      } 
+      }
     });
 
     const result = [];
@@ -475,16 +475,16 @@ exports.getNotifications = async (req, res) => {
       created_at: n.created_at
     }));
 
-    res.json({ 
+    res.json({
       success: true,
       notifications: formatted,
       unreadCount: unreadCount || 0
     });
   } catch (error) {
     console.error('Get notifications error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to get notifications', 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get notifications',
       error: error.message,
       notifications: [],
       unreadCount: 0
@@ -496,7 +496,7 @@ exports.markNotificationAsRead = async (req, res) => {
   try {
     const { id } = req.params;
     const notification = await Notification.findByPk(id);
-    
+
     if (!notification) {
       return res.status(404).json({
         success: false,
@@ -505,9 +505,9 @@ exports.markNotificationAsRead = async (req, res) => {
     }
 
     await notification.update({ read: true, read_at: new Date() });
-    res.json({ 
-      success: true, 
-      message: 'Notification marked as read' 
+    res.json({
+      success: true,
+      message: 'Notification marked as read'
     });
   } catch (error) {
     console.error('Mark notification error:', error);
@@ -524,7 +524,7 @@ exports.markAllNotificationsAsRead = async (req, res) => {
     const userId = req.user.id;
     await Notification.update(
       { read: true, read_at: new Date() },
-      { 
+      {
         where: {
           [Op.or]: [
             { user_id: userId },
@@ -535,9 +535,9 @@ exports.markAllNotificationsAsRead = async (req, res) => {
         }
       }
     );
-    res.json({ 
-      success: true, 
-      message: 'All notifications marked as read' 
+    res.json({
+      success: true,
+      message: 'All notifications marked as read'
     });
   } catch (error) {
     console.error('Mark all notifications error:', error);
@@ -620,10 +620,10 @@ exports.getMembers = async (req, res) => {
         'updated_at'
       ],
       include: [
-        { 
-          model: User, 
-          as: 'user', 
-          attributes: ['id', 'email', 'full_name', 'phone', 'status', 'role'] 
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'email', 'full_name', 'phone', 'status', 'role']
         }
       ],
       order: [['created_at', 'DESC']]
@@ -632,7 +632,7 @@ exports.getMembers = async (req, res) => {
     const formattedMembers = members.map(member => {
       const memberData = member.toJSON ? member.toJSON() : member;
       const userData = memberData.user || {};
-      
+
       return {
         id: memberData.id,
         user_id: memberData.user_id,
@@ -661,7 +661,7 @@ exports.getMembers = async (req, res) => {
         bio: memberData.bio || '',
         skills: memberData.skills || [],
         interests: memberData.interests || [],
-        
+
         fee_status: memberData.fee_status || 'unpaid',
         paymentStatus: memberData.payment_status || memberData.fee_status || 'unpaid',
         payment_status: memberData.payment_status || memberData.fee_status || 'unpaid',
@@ -674,11 +674,11 @@ exports.getMembers = async (req, res) => {
         payment_reference: memberData.payment_reference || null,
         fee_paid_date: memberData.fee_paid_date || null,
         fee_expiry_date: memberData.fee_expiry_date || null,
-        
+
         scout_id_generated: memberData.scout_id_generated || false,
         scout_id_generated_date: memberData.scout_id_generated_date || null,
         scout_id_generated_by: memberData.scout_id_generated_by || null,
-        
+
         user: {
           id: userData.id,
           email: userData.email,
@@ -687,7 +687,7 @@ exports.getMembers = async (req, res) => {
           status: userData.status,
           role: userData.role
         },
-        
+
         createdAt: memberData.created_at,
         updatedAt: memberData.updated_at,
         created_at: memberData.created_at,
@@ -698,7 +698,7 @@ exports.getMembers = async (req, res) => {
     let filteredMembers = formattedMembers;
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredMembers = formattedMembers.filter(m => 
+      filteredMembers = formattedMembers.filter(m =>
         (m.sin?.toLowerCase() || '').includes(searchLower) ||
         (m.fullName?.toLowerCase() || '').includes(searchLower) ||
         (m.firstName?.toLowerCase() || '').includes(searchLower) ||
@@ -712,8 +712,8 @@ exports.getMembers = async (req, res) => {
 
     console.log(`✅ Found ${members.length} members, returning ${filteredMembers.length} after search`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       members: filteredMembers,
       total: members.length,
       filtered: filteredMembers.length
@@ -721,10 +721,10 @@ exports.getMembers = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Get members error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to get members', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get members',
+      error: error.message
     });
   }
 };
@@ -859,9 +859,9 @@ exports.toggleMemberStatus = async (req, res) => {
     const { status } = req.body;
 
     if (!status) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Status is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
       });
     }
 
@@ -870,9 +870,9 @@ exports.toggleMemberStatus = async (req, res) => {
     });
 
     if (!member) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Member not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
       });
     }
 
@@ -889,10 +889,10 @@ exports.toggleMemberStatus = async (req, res) => {
 
   } catch (error) {
     console.error('Toggle member status error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update status', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update status',
+      error: error.message
     });
   }
 };
@@ -904,12 +904,12 @@ exports.toggleMemberStatus = async (req, res) => {
 exports.approveFee = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const member = await Member.findByPk(id);
     if (!member) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Member not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
       });
     }
 
@@ -927,24 +927,24 @@ exports.approveFee = async (req, res) => {
 
     if (!member.sin) {
       const sin = await generateSIN(id);
-      await member.update({ 
-        sin, 
-        scout_id_generated: true 
+      await member.update({
+        sin,
+        scout_id_generated: true
       });
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Membership fee approved successfully!',
       member
     });
 
   } catch (error) {
     console.error('❌ Approve fee error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to approve fee', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve fee',
+      error: error.message
     });
   }
 };
@@ -987,24 +987,24 @@ exports.generateSIN = async (req, res) => {
 exports.approvePayment = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log(`💰 Approving payment for member ${id}`);
-    
+
     const member = await Member.findByPk(id, {
       include: [{ model: User, as: 'user' }]
     });
-    
+
     if (!member) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Member not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
       });
     }
-    
+
     console.log(`📊 Current fee_status: ${member.fee_status}`);
     console.log(`📊 Current sin: ${member.sin}`);
     console.log(`📊 Current scout_id_generated: ${member.scout_id_generated}`);
-    
+
     const updates = {
       fee_status: 'paid',
       payment_status: 'paid',
@@ -1014,37 +1014,37 @@ exports.approvePayment = async (req, res) => {
       membership_status: 'active',
       scout_id_generated: true
     };
-    
+
     if (!member.sin) {
       const newSin = await generateSIN(member.user_id);
       updates.sin = newSin;
       console.log(`🆕 Generated new SIN: ${newSin}`);
     }
-    
+
     await member.update(updates);
     await member.reload();
-    
+
     console.log(`✅ Payment approved for member ${id}`);
     console.log(`📊 New fee_status: ${member.fee_status}`);
     console.log(`📊 New sin: ${member.sin}`);
     console.log(`📊 New scout_id_generated: ${member.scout_id_generated}`);
-    
+
     const updatedMember = await Member.findByPk(id, {
       include: [{ model: User, as: 'user' }]
     });
-    
+
     return res.status(200).json({
       success: true,
       message: 'Payment approved successfully! Scout ID Card is now available.',
       member: updatedMember,
       sinGenerated: !!member.sin
     });
-    
+
   } catch (error) {
     console.error('❌ Payment approval error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to approve payment: ' + error.message 
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to approve payment: ' + error.message
     });
   }
 };
@@ -1056,7 +1056,7 @@ exports.approvePayment = async (req, res) => {
 exports.getLeaders = async (req, res) => {
   try {
     const leaders = await User.findAll({
-      where: { 
+      where: {
         role: ['national_commissioner', 'district_commissioner']
       },
       include: [{ model: Member, as: 'member' }],
@@ -1137,8 +1137,8 @@ exports.updateLeader = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Leader not found' });
     }
 
-    await user.update({ 
-      full_name: fullName, 
+    await user.update({
+      full_name: fullName,
       phone,
       role: 'national_commissioner'
     });
@@ -1147,8 +1147,8 @@ exports.updateLeader = async (req, res) => {
       await user.member.update({ district });
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'National Commissioner updated successfully',
       user
     });
@@ -1168,9 +1168,9 @@ exports.deleteLeader = async (req, res) => {
     }
 
     if (user.email === 'national@msr.rw') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Cannot delete the primary National Commissioner account' 
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete the primary National Commissioner account'
       });
     }
 
@@ -1233,9 +1233,9 @@ exports.updatePermissions = async (req, res) => {
       });
     }
 
-    const isSuperAdmin = userRole === 'super_admin' || 
-                         userRole === 'super-admin' || 
-                         userRole === 'admin';
+    const isSuperAdmin = userRole === 'super_admin' ||
+      userRole === 'super-admin' ||
+      userRole === 'admin';
 
     if (!isSuperAdmin) {
       console.log(`❌ User ${userId} with role ${userRole} denied permission update`);
@@ -1246,9 +1246,9 @@ exports.updatePermissions = async (req, res) => {
     }
 
     if (user.role === 'super_admin' || user.role === 'super-admin' || user.role === 'admin') {
-      const isRemovingSuperAdmin = permissions?.isSuperAdmin === false || 
-                                   permissions?.canManageSuperAdmins === false;
-      
+      const isRemovingSuperAdmin = permissions?.isSuperAdmin === false ||
+        permissions?.canManageSuperAdmins === false;
+
       if (isRemovingSuperAdmin) {
         const superAdminCount = await User.count({
           where: {
@@ -1286,8 +1286,8 @@ exports.updatePermissions = async (req, res) => {
     const updatedUser = await User.findByPk(id, {
       attributes: { exclude: ['password_hash', 'reset_token', 'reset_token_expiry'] },
       include: [
-        { 
-          model: Member, 
+        {
+          model: Member,
           as: 'member',
           attributes: ['id', 'sin', 'first_name', 'last_name', 'district', 'province', 'sector', 'cell', 'village', 'gender', 'date_of_birth', 'membership_status', 'membership_type', 'joined_date', 'expiry_date', 'profile_image', 'bio', 'skills', 'interests']
         }
@@ -1385,10 +1385,10 @@ exports.getEventById = async (req, res) => {
 
     const event = await Event.findByPk(id, {
       include: [
-        { 
-          model: User, 
-          as: 'creator', 
-          attributes: ['id', 'full_name', 'email'] 
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'full_name', 'email']
         },
         {
           model: EventRegistration,
@@ -1421,11 +1421,11 @@ exports.getEventById = async (req, res) => {
     const approvedCount = await EventRegistration.count({
       where: { event_id: id, status: 'approved' }
     });
-    
+
     const pendingCount = await EventRegistration.count({
       where: { event_id: id, status: 'pending' }
     });
-    
+
     const cancelledCount = await EventRegistration.count({
       where: { event_id: id, status: 'cancelled' }
     });
@@ -1472,60 +1472,150 @@ exports.createEvent = async (req, res) => {
       venue,
       audiences = [],
       resources = [],
-      scope,        // ✅ ADD THIS
-      is_national   // ✅ ADD THIS
-    } = req.body;
+      scope,
+      is_national
+    } = req.body || {};
 
-    if (!title || !start_date || !location) {
+    // Diagnostic logging: identify missing request fields.
+    console.log('📥 National event request:', {
+      title,
+      start_date,
+      end_date,
+      location,
+      bodyKeys: Object.keys(req.body || {}),
+      uploadedPhoto: req.file
+        ? req.file.filename
+        : 'No photo received'
+    });
+
+    // Validate required fields.
+    if (
+      typeof title !== 'string' ||
+      !title.trim() ||
+      !start_date ||
+      !location ||
+      (typeof location === 'string' && !location.trim())
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Title, start date and location are required'
+        message: 'Title, start date and location are required',
+        missingFields: [
+          ...(
+            typeof title !== 'string' || !title.trim()
+              ? ['title']
+              : []
+          ),
+          ...(!start_date ? ['start_date'] : []),
+          ...(
+            !location ||
+              (typeof location === 'string' && !location.trim())
+              ? ['location']
+              : []
+          )
+        ]
       });
     }
 
-    if (new Date(start_date) >= new Date(end_date || start_date)) {
+    // Validate date values.
+    const startDate = new Date(start_date);
+    const endDate = end_date ? new Date(end_date) : null;
+
+    if (Number.isNaN(startDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid start date is required'
+      });
+    }
+
+    if (end_date && Number.isNaN(endDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid end date is required'
+      });
+    }
+
+    if (endDate && startDate >= endDate) {
       return res.status(400).json({
         success: false,
         message: 'End date must be after start date'
       });
     }
 
+    // Confirm the authenticated user exists.
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication is required to create an event'
+      });
+    }
+
+    // Store the relative URL of the optional uploaded photo.
+    const image_url = req.file
+      ? `/uploads/events/${req.file.filename}`
+      : null;
+
+    // Preserve existing event fields and national-event settings.
     const event = await Event.create({
-      title,
+      title: title.trim(),
       description: description || '',
       start_date,
       end_date: end_date || start_date,
-      location,
+      location: typeof location === 'string'
+        ? location.trim()
+        : location,
       venue: venue || location,
-      capacity: capacity || null,
+      capacity:
+        capacity !== undefined &&
+          capacity !== null &&
+          capacity !== ''
+          ? parseInt(capacity, 10)
+          : null,
       price: parseFloat(price) || 0,
       registration_deadline: registration_deadline || null,
       status,
       event_type: event_type || 'general',
       category: category || 'general',
       created_by: req.user.id,
-      // ✅ THESE ARE THE IMPORTANT FIELDS
-      scope: scope || 'national',        // Default to 'national'
-      is_national: is_national !== undefined ? is_national : true  // Default to true
+      audiences,
+      resources,
+      scope: scope || 'national',
+      is_national:
+        is_national !== undefined
+          ? is_national === true || is_national === 'true'
+          : true,
+      image_url
     });
 
-    console.log(`✅ National event created: "${title}" by ${req.user.full_name}`);
-    console.log(`📊 Scope: ${event.scope}, is_national: ${event.is_national}`);
+    console.log(
+      `✅ National event created: "${event.title}" by ${req.user.full_name || req.user.id
+      }`
+    );
 
-    res.status(201).json({
+    console.log(
+      `📊 Scope: ${event.scope}, is_national: ${event.is_national}`
+    );
+
+    console.log(
+      `🖼️ Event image: ${event.image_url || 'No photo uploaded'}`
+    );
+
+    return res.status(201).json({
       success: true,
       message: 'National event created successfully',
       event
     });
   } catch (error) {
     console.error('❌ Create event error:', error);
-    res.status(500).json({
+
+    return res.status(500).json({
       success: false,
       message: 'Failed to create event',
       error: error.message
     });
   }
 };
+
+
 
 // ============================================
 // UPDATE EVENT
@@ -1607,35 +1697,48 @@ exports.deleteEvent = async (req, res) => {
       });
     }
 
-    const approvedCount = await EventRegistration.count({
-      where: { event_id: id, status: 'approved' }
-    });
+    const now = new Date();
+    const eventEnd = event.end_date ? new Date(event.end_date) : null;
+    const eventHasEnded = eventEnd && eventEnd < now;
 
-    if (approvedCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot cancel event with ${approvedCount} approved registrations. Please contact attendees first.`
+    // ✅ Only block deletion for events that have NOT ended yet
+    if (!eventHasEnded) {
+      const approvedCount = await EventRegistration.count({
+        where: { event_id: id, status: 'approved' }
       });
+
+      if (approvedCount > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete an upcoming event with ${approvedCount} approved registration${approvedCount === 1 ? '' : 's'}. You can delete it after the event's end date, or cancel it now instead.`
+        });
+      }
     }
 
-    await event.update({ status: 'cancelled' });
+    // ✅ If the event has ended, remove its registrations first
+    //    (so no orphan rows remain in event_registrations)
+    if (eventHasEnded) {
+      await EventRegistration.destroy({ where: { event_id: id } });
+    }
 
-    console.log(`Event cancelled: "${event.title}"`);
+    await event.destroy();
+
+    console.log(`Event deleted: "${event.title}" (ended: ${eventHasEnded})`);
 
     res.json({
       success: true,
-      message: 'Event cancelled successfully'
+      message: 'Event deleted successfully'
     });
+
   } catch (error) {
     console.error('Delete event error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to cancel event',
+      message: 'Failed to delete event',
       error: error.message
     });
   }
 };
-
 // ============================================
 // GET EVENT REGISTRATIONS
 // ============================================
@@ -1670,17 +1773,17 @@ exports.getAllRegistrations = async (req, res) => {
     const registrations = await EventRegistration.findAll({
       where,
       include: [
-        { 
-          model: Event, 
+        {
+          model: Event,
           as: 'event',
           attributes: ['id', 'title', 'start_date', 'end_date', 'location']
         },
-        { 
-          model: Member, 
+        {
+          model: Member,
           as: 'member',
           include: [
-            { 
-              model: User, 
+            {
+              model: User,
               as: 'user',
               attributes: ['id', 'full_name', 'email', 'phone']
             }
@@ -1709,15 +1812,15 @@ exports.getAllRegistrations = async (req, res) => {
       attendanceTime: reg.attendance_time || null
     }));
 
-    res.json({ 
-      success: true, 
-      registrations: formattedRegistrations 
+    res.json({
+      success: true,
+      registrations: formattedRegistrations
     });
   } catch (error) {
     console.error('Get all registrations error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to get registrations', 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get registrations',
       error: error.message,
       registrations: []
     });
@@ -1782,7 +1885,7 @@ exports.markAttended = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Registration not found' });
     }
 
-    await registration.update({ 
+    await registration.update({
       status: 'attended',
       attendance_status: 'present',
       attendance_time: new Date()
@@ -1820,7 +1923,7 @@ exports.issueCertificate = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Registration not found' });
     }
 
-    await registration.update({ 
+    await registration.update({
       certificate_issued: true,
       certificate_url: `/uploads/certificates/registration-${id}.pdf`
     });
@@ -1948,20 +2051,20 @@ exports.deleteDonation = async (req, res) => {
 exports.getAttendance = async (req, res) => {
   try {
     const { eventId } = req.params;
-    
+
     const event = await Event.findByPk(eventId);
     if (!event) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Event not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
       });
     }
 
     const registrations = await EventRegistration.findAll({
       where: { event_id: eventId },
       include: [
-        { 
-          model: Member, 
+        {
+          model: Member,
           as: 'member',
           include: [{ model: User, as: 'user' }]
         }
@@ -1989,8 +2092,8 @@ exports.getAttendance = async (req, res) => {
     const pending = attendance.filter(a => a.status === 'pending').length;
     const excused = attendance.filter(a => a.status === 'excused').length;
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       attendance,
       stats: {
         total,
@@ -2003,9 +2106,9 @@ exports.getAttendance = async (req, res) => {
     });
   } catch (error) {
     console.error('Get attendance error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message, 
+    res.status(500).json({
+      success: false,
+      message: error.message,
       attendance: [],
       stats: { total: 0, present: 0, absent: 0, pending: 0, excused: 0, attendanceRate: 0 }
     });
@@ -2020,7 +2123,7 @@ exports.markAttendance = async (req, res) => {
   try {
     const { eventId, memberId } = req.params;
     const { status = 'present' } = req.body;
-    
+
     const registration = await EventRegistration.findOne({
       where: { event_id: eventId, member_id: memberId }
     });
@@ -2039,8 +2142,8 @@ exports.markAttendance = async (req, res) => {
       checked_in_by: req.user?.id ? 'admin' : 'system'
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Attendance marked successfully',
       registration
     });
@@ -2057,11 +2160,11 @@ exports.markAttendance = async (req, res) => {
 exports.verifyAttendanceLink = async (req, res) => {
   try {
     const { token } = req.params;
-    
+
     console.log('🔍 Verifying attendance link for token:', token);
 
     let event = await Event.findOne({
-      where: { 
+      where: {
         attendance_link: token
       },
       attributes: ['id', 'title', 'start_date', 'end_date', 'location', 'venue', 'status', 'attendance_link', 'attendance_link_expires']
@@ -2088,7 +2191,7 @@ exports.verifyAttendanceLink = async (req, res) => {
     if (event.attendance_link_expires) {
       const now = new Date();
       const expires = new Date(event.attendance_link_expires);
-      
+
       if (expires < now) {
         console.log('❌ Link expired at:', expires);
         return res.status(400).json({
@@ -2153,7 +2256,7 @@ exports.checkInByLink = async (req, res) => {
     }
 
     let event = await Event.findOne({
-      where: { 
+      where: {
         attendance_link: token
       }
     });
@@ -2173,7 +2276,7 @@ exports.checkInByLink = async (req, res) => {
     if (event.attendance_link_expires) {
       const now = new Date();
       const expires = new Date(event.attendance_link_expires);
-      
+
       if (expires < now) {
         console.log('❌ Link expired at:', expires);
         return res.status(400).json({
@@ -2202,9 +2305,9 @@ exports.checkInByLink = async (req, res) => {
     }
 
     const registration = await EventRegistration.findOne({
-      where: { 
-        event_id: event.id, 
-        member_id: member.id 
+      where: {
+        event_id: event.id,
+        member_id: member.id
       }
     });
 
@@ -2276,13 +2379,13 @@ exports.getReports = async (req, res) => {
   try {
     const { district, status, limit = 100, offset = 0 } = req.query;
     const { Op } = require('sequelize');
-    
+
     const userRole = req.user.role;
     const userId = req.user.id;
 
     console.log(`📊 Fetching reports for user: ${userId} (${userRole})`);
     console.log(`📊 Query params:`, { district, status, limit, offset });
-    
+
     let where = {};
 
     // ✅ ROLE-BASED FILTERING
@@ -2293,16 +2396,16 @@ exports.getReports = async (req, res) => {
         status: 'forwarded'
       };
       console.log('🔍 Donor - showing only forwarded reports');
-    } else if (userRole === 'super_admin' || 
-               userRole === 'super-admin' || 
-               userRole === 'admin' || 
-               userRole === 'national_commissioner' || 
-               userRole === 'national-commissioner') {
-      
+    } else if (userRole === 'super_admin' ||
+      userRole === 'super-admin' ||
+      userRole === 'admin' ||
+      userRole === 'national_commissioner' ||
+      userRole === 'national-commissioner') {
+
       // ✅ Super Admin and National Commissioner see ALL reports
       where = {};
       console.log('🔍 Super Admin/National - showing ALL reports');
-      
+
     } else {
       // District Commissioner or other roles
       where = {
@@ -2334,9 +2437,9 @@ exports.getReports = async (req, res) => {
         'id', 'title', 'description', 'activity_type',
         'activity_date', 'location', 'participants_count',
         'achievements', 'challenges', 'recommendations',
-        'status', 'feedback', 'file_urls', 'created_by', 
-        'submitted_by', 'reviewed_by', 'reviewed_at', 
-        'created_at', 'updated_at', 'district', 'unit_id', 
+        'status', 'feedback', 'file_urls', 'created_by',
+        'submitted_by', 'reviewed_by', 'reviewed_at',
+        'created_at', 'updated_at', 'district', 'unit_id',
         'type', 'published_to_public', 'published_to_donors',
         'forwarded_to_national', 'forwarded_to_national_at',
         'forwarded_to_national_by'
@@ -2519,12 +2622,12 @@ exports.getProjects = async (req, res) => {
     const projects = await Project.findAll({
       where,
       include: [
-        { 
-          model: Member, 
+        {
+          model: Member,
           as: 'submitter',
           include: [
-            { 
-              model: User, 
+            {
+              model: User,
               as: 'user',
               attributes: ['id', 'full_name', 'email']
             }
@@ -2537,7 +2640,7 @@ exports.getProjects = async (req, res) => {
 
     const formattedProjects = projects.map(project => {
       const projectData = project.toJSON();
-      
+
       let submitterName = 'Unknown';
       if (projectData.submitter?.user?.full_name) {
         submitterName = projectData.submitter.user.full_name;
@@ -2555,9 +2658,9 @@ exports.getProjects = async (req, res) => {
       };
     });
 
-    res.json({ 
-      success: true, 
-      projects: formattedProjects 
+    res.json({
+      success: true,
+      projects: formattedProjects
     });
   } catch (error) {
     console.error('Get projects error:', error);
@@ -2688,29 +2791,29 @@ exports.getNationalIdeas = async (req, res) => {
   try {
     const { category, status } = req.query;
     const user = req.user;
-    
+
     console.log(`🏛️ National Commissioner fetching all ideas sent to them`);
     console.log(`👤 User ID: ${user.id}, Role: ${user.role}`);
-    
+
     // ✅ Build where clause - Include both 'national-commissioner' and 'both'
     const whereClause = {
       recipient: {
         [Op.in]: ['national-commissioner', 'both']
       }
     };
-    
+
     // Add category filter if provided
     if (category && category !== 'all') {
       whereClause.category = category;
     }
-    
+
     // Add status filter if provided
     if (status && status !== 'all') {
       whereClause.status = status;
     }
-    
+
     console.log('🔍 Where clause:', JSON.stringify(whereClause, null, 2));
-    
+
     const ideas = await Idea.findAll({
       where: whereClause,
       order: [['created_at', 'DESC']],
@@ -2722,9 +2825,9 @@ exports.getNationalIdeas = async (req, res) => {
         }
       ]
     });
-    
+
     console.log(`✅ Found ${ideas.length} ideas for National Commissioner`);
-    
+
     // Log the ideas found
     if (ideas.length > 0) {
       ideas.forEach(idea => {
@@ -2733,7 +2836,7 @@ exports.getNationalIdeas = async (req, res) => {
     } else {
       console.log('📊 No ideas found for National Commissioner');
     }
-    
+
     // Format response
     const formattedIdeas = ideas.map(idea => ({
       id: idea.id,
@@ -2751,13 +2854,13 @@ exports.getNationalIdeas = async (req, res) => {
       created_at: idea.created_at,
       creator: idea.creator
     }));
-    
+
     res.json({
       success: true,
       total: formattedIdeas.length,
       ideas: formattedIdeas
     });
-    
+
   } catch (error) {
     console.error('❌ Error fetching national ideas:', error);
     res.status(500).json({
@@ -2775,7 +2878,7 @@ exports.getNationalIdeas = async (req, res) => {
 exports.getNationalIdea = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const idea = await Idea.findByPk(id, {
       include: [
         {
@@ -2785,14 +2888,14 @@ exports.getNationalIdea = async (req, res) => {
         }
       ]
     });
-    
+
     if (!idea) {
       return res.status(404).json({
         success: false,
         message: 'Idea not found'
       });
     }
-    
+
     // ✅ Check if idea is for National Commissioner
     if (idea.recipient !== 'national-commissioner' && idea.recipient !== 'both') {
       return res.status(403).json({
@@ -2800,12 +2903,12 @@ exports.getNationalIdea = async (req, res) => {
         message: 'This idea is not available for National Commissioner review'
       });
     }
-    
+
     res.json({
       success: true,
       idea: idea
     });
-    
+
   } catch (error) {
     console.error('❌ Error fetching national idea:', error);
     res.status(500).json({
@@ -2825,16 +2928,16 @@ exports.reviewNationalIdea = async (req, res) => {
     const { id } = req.params;
     const { status, feedback, response } = req.body;
     const user = req.user;
-    
+
     const idea = await Idea.findByPk(id);
-    
+
     if (!idea) {
       return res.status(404).json({
         success: false,
         message: 'Idea not found'
       });
     }
-    
+
     // ✅ Check if idea is for National Commissioner
     if (idea.recipient !== 'national-commissioner' && idea.recipient !== 'both') {
       return res.status(403).json({
@@ -2842,13 +2945,13 @@ exports.reviewNationalIdea = async (req, res) => {
         message: 'This idea is not available for National Commissioner review'
       });
     }
-    
+
     await idea.update({
       status: status || idea.status,
       feedback: feedback || idea.feedback,
       response: response || idea.response
     });
-    
+
     // Create notification for the creator
     if (idea.user_id) {
       await Notification.create({
@@ -2861,15 +2964,15 @@ exports.reviewNationalIdea = async (req, res) => {
         is_read: false
       });
     }
-    
+
     console.log(`✅ Idea ${id} reviewed by National Commissioner ${user.full_name}`);
-    
+
     res.json({
       success: true,
       message: 'Idea reviewed successfully',
       idea: idea
     });
-    
+
   } catch (error) {
     console.error('❌ Error reviewing national idea:', error);
     res.status(500).json({
@@ -2888,16 +2991,16 @@ exports.deleteNationalIdea = async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user;
-    
+
     const idea = await Idea.findByPk(id);
-    
+
     if (!idea) {
       return res.status(404).json({
         success: false,
         message: 'Idea not found'
       });
     }
-    
+
     // ✅ Check if idea is for National Commissioner
     if (idea.recipient !== 'national-commissioner' && idea.recipient !== 'both') {
       return res.status(403).json({
@@ -2905,16 +3008,16 @@ exports.deleteNationalIdea = async (req, res) => {
         message: 'This idea is not available for National Commissioner deletion'
       });
     }
-    
+
     await idea.destroy();
-    
+
     console.log(`🗑️ Idea ${id} deleted by National Commissioner ${user.full_name}`);
-    
+
     res.json({
       success: true,
       message: 'Idea deleted successfully'
     });
-    
+
   } catch (error) {
     console.error('❌ Error deleting national idea:', error);
     res.status(500).json({
@@ -2935,12 +3038,12 @@ exports.updateIdeaStatus = async (req, res) => {
     console.log(`👤 User: ${userId}, Role: ${userRole}`);
 
     const idea = await Idea.findByPk(id);
-    
+
     if (!idea) {
       console.log(`❌ Idea ${id} not found`);
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Idea not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Idea not found'
       });
     }
 
@@ -2974,8 +3077,8 @@ exports.updateIdeaStatus = async (req, res) => {
 
     const updatedIdea = await Idea.findByPk(id, {
       include: [
-        { 
-          model: User, 
+        {
+          model: User,
           as: 'creator',
           attributes: ['id', 'full_name', 'email']
         }
@@ -3016,12 +3119,12 @@ exports.forwardIdea = async (req, res) => {
     }
 
     const idea = await Idea.findByPk(id);
-    
+
     if (!idea) {
       console.log(`❌ Idea ${id} not found`);
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Idea not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Idea not found'
       });
     }
 
@@ -3047,26 +3150,26 @@ exports.forwardIdea = async (req, res) => {
 
     const updatedIdea = await Idea.findByPk(id, {
       include: [
-        { 
-          model: User, 
+        {
+          model: User,
           as: 'creator',
           attributes: ['id', 'full_name', 'email']
         }
       ]
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `Idea forwarded to ${office}`,
       idea: updatedIdea
     });
 
   } catch (error) {
     console.error('❌ Forward idea error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to forward idea', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to forward idea',
+      error: error.message
     });
   }
 };
@@ -3246,7 +3349,7 @@ exports.createAnnouncement = async (req, res) => {
     }
 
     let audienceValue = audience || ['all'];
-    
+
     if (typeof audienceValue === 'string') {
       if (audienceValue.includes(',')) {
         audienceValue = audienceValue.split(',').map(a => a.trim());
@@ -3286,10 +3389,10 @@ exports.createAnnouncement = async (req, res) => {
     if (send_email) {
       try {
         console.log('📧 Sending email notifications...');
-        
+
         const recipients = await getEmailRecipients(audienceValue, district);
         console.log(`📧 Found ${recipients.length} recipients for audience:`, audienceValue);
-        
+
         if (recipients.length > 0) {
           const author = await User.findByPk(req.user.id);
           const result = await sendBulkEmails(recipients, announcement, author);
@@ -3349,7 +3452,7 @@ const getEmailRecipients = async (audience, district) => {
   }
 
   const roleConditions = [];
-  
+
   if (audience.includes('scouts')) {
     roleConditions.push({ role: 'scout' });
   }
@@ -3547,41 +3650,41 @@ exports.getStatistics = async (req, res) => {
     console.log('📊 Fetching complete statistics...');
 
     const totalMembers = await Member.count() || 0;
-    const activeMembers = await Member.count({ 
-      where: { membership_status: 'active' } 
+    const activeMembers = await Member.count({
+      where: { membership_status: 'active' }
     }) || 0;
     const inactiveMembers = totalMembers - activeMembers || 0;
-    
-    const totalLeaders = await User.count({ 
-      where: { 
-        role: ['unit_leader', 'district_commissioner', 'national_commissioner', 'super_admin'] 
-      } 
+
+    const totalLeaders = await User.count({
+      where: {
+        role: ['unit_leader', 'district_commissioner', 'national_commissioner', 'super_admin']
+      }
     }) || 0;
-    
+
     const totalEvents = await Event.count() || 0;
     const totalProjects = await Project.count() || 0;
     const totalReports = await Report.count() || 0;
-    const pendingRegistrations = await Member.count({ 
-      where: { membership_status: 'pending' } 
-    }) || 0;
-    
-    const totalDonations = await Donation.sum('amount', { 
-      where: { status: 'completed' } 
-    }) || 0;
-    
-    const pendingReports = await Report.count({ 
-      where: { status: 'pending' } 
-    }) || 0;
-    
-    const pendingProjects = await Project.count({ 
-      where: { status: 'pending' } 
+    const pendingRegistrations = await Member.count({
+      where: { membership_status: 'pending' }
     }) || 0;
 
-    const upcomingEvents = await Event.count({ 
-      where: { 
+    const totalDonations = await Donation.sum('amount', {
+      where: { status: 'completed' }
+    }) || 0;
+
+    const pendingReports = await Report.count({
+      where: { status: 'pending' }
+    }) || 0;
+
+    const pendingProjects = await Project.count({
+      where: { status: 'pending' }
+    }) || 0;
+
+    const upcomingEvents = await Event.count({
+      where: {
         status: ['upcoming', 'published'],
         start_date: { [Op.gte]: new Date() }
-      } 
+      }
     }) || 0;
 
     console.log('📊 Statistics result:', {
@@ -3618,10 +3721,10 @@ exports.getStatistics = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Get statistics error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to get statistics', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get statistics',
+      error: error.message
     });
   }
 };
@@ -3633,9 +3736,9 @@ exports.getStatistics = async (req, res) => {
 exports.exportStatistics = async (req, res) => {
   try {
     const { format } = req.query;
-    
+
     console.log(`📤 Exporting statistics in ${format} format...`);
-    
+
     const statsData = {
       totalMembers: await Member.count() || 0,
       activeMembers: await Member.count({ where: { membership_status: 'active' } }) || 0,
@@ -3657,7 +3760,7 @@ exports.exportStatistics = async (req, res) => {
     if (format === 'pdf') {
       return generatePDF(statsData, res);
     }
-    
+
     if (format === 'excel' || format === 'xlsx') {
       return await generateExcel(statsData, res);
     }
@@ -3670,10 +3773,10 @@ exports.exportStatistics = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Export statistics error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to export statistics', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export statistics',
+      error: error.message
     });
   }
 };
@@ -3685,36 +3788,36 @@ exports.exportStatistics = async (req, res) => {
 const generatePDF = (data, res) => {
   try {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=statistics-report-${new Date().toISOString().split('T')[0]}.pdf`);
-    
+
     doc.pipe(res);
-    
+
     doc.fontSize(24)
-       .font('Helvetica-Bold')
-       .fillColor('#FFD100')
-       .text('MSR Rwanda', { align: 'center' })
-       .moveDown(0.5);
-    
+      .font('Helvetica-Bold')
+      .fillColor('#FFD100')
+      .text('MSR Rwanda', { align: 'center' })
+      .moveDown(0.5);
+
     doc.fontSize(20)
-       .font('Helvetica-Bold')
-       .fillColor('#002B5C')
-       .text('National Statistics Report', { align: 'center' })
-       .moveDown(0.5);
-    
+      .font('Helvetica-Bold')
+      .fillColor('#002B5C')
+      .text('National Statistics Report', { align: 'center' })
+      .moveDown(0.5);
+
     doc.fontSize(12)
-       .font('Helvetica')
-       .fillColor('#6B7280')
-       .text(`Generated: ${new Date(data.exportedAt).toLocaleString()}`, { align: 'center' })
-       .moveDown(1.5);
-    
+      .font('Helvetica')
+      .fillColor('#6B7280')
+      .text(`Generated: ${new Date(data.exportedAt).toLocaleString()}`, { align: 'center' })
+      .moveDown(1.5);
+
     doc.fontSize(16)
-       .font('Helvetica-Bold')
-       .fillColor('#1a1a1a')
-       .text('Executive Summary', { underline: true })
-       .moveDown(0.5);
-    
+      .font('Helvetica-Bold')
+      .fillColor('#1a1a1a')
+      .text('Executive Summary', { underline: true })
+      .moveDown(0.5);
+
     const stats = [
       ['Metric', 'Value'],
       ['Total Members', data.totalMembers.toString()],
@@ -3730,62 +3833,62 @@ const generatePDF = (data, res) => {
       ['Pending Projects', data.pendingProjects.toString()],
       ['Total Donations', `RWF ${data.totalDonations.toLocaleString()}`]
     ];
-    
+
     let y = doc.y;
     const startX = 50;
     const col1Width = 200;
     const col2Width = 150;
     const rowHeight = 25;
-    
+
     doc.fontSize(12)
-       .font('Helvetica-Bold')
-       .fillColor('#FFFFFF');
-    
+      .font('Helvetica-Bold')
+      .fillColor('#FFFFFF');
+
     doc.rect(startX, y, col1Width, rowHeight)
-       .fillAndStroke('#FFD100', '#FFD100');
+      .fillAndStroke('#FFD100', '#FFD100');
     doc.rect(startX + col1Width, y, col2Width, rowHeight)
-       .fillAndStroke('#FFD100', '#FFD100');
-    
+      .fillAndStroke('#FFD100', '#FFD100');
+
     doc.fillColor('#1a1a1a')
-       .text('Metric', startX + 10, y + 7)
-       .text('Value', startX + col1Width + 10, y + 7);
-    
+      .text('Metric', startX + 10, y + 7)
+      .text('Value', startX + col1Width + 10, y + 7);
+
     y += rowHeight;
-    
+
     for (let i = 1; i < stats.length; i++) {
       const isEven = i % 2 === 0;
       const fillColor = isEven ? '#F9FAFB' : '#FFFFFF';
-      
+
       doc.rect(startX, y, col1Width, rowHeight)
-         .fillAndStroke(fillColor, '#E5E7EB');
+        .fillAndStroke(fillColor, '#E5E7EB');
       doc.rect(startX + col1Width, y, col2Width, rowHeight)
-         .fillAndStroke(fillColor, '#E5E7EB');
-      
+        .fillAndStroke(fillColor, '#E5E7EB');
+
       doc.fillColor('#1a1a1a')
-         .font('Helvetica')
-         .fontSize(11)
-         .text(stats[i][0], startX + 10, y + 7)
-         .text(stats[i][1], startX + col1Width + 10, y + 7);
-      
+        .font('Helvetica')
+        .fontSize(11)
+        .text(stats[i][0], startX + 10, y + 7)
+        .text(stats[i][1], startX + col1Width + 10, y + 7);
+
       y += rowHeight;
     }
-    
+
     doc.moveDown(1);
-    
+
     doc.fontSize(10)
-       .font('Helvetica')
-       .fillColor('#6B7280')
-       .text('This report was generated automatically by MSR Rwanda System.', { align: 'center' })
-       .text(`© ${new Date().getFullYear()} MSR Rwanda. All rights reserved.`, { align: 'center' });
-    
+      .font('Helvetica')
+      .fillColor('#6B7280')
+      .text('This report was generated automatically by MSR Rwanda System.', { align: 'center' })
+      .text(`© ${new Date().getFullYear()} MSR Rwanda. All rights reserved.`, { align: 'center' });
+
     doc.end();
-    
+
   } catch (error) {
     console.error('❌ PDF generation error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to generate PDF', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate PDF',
+      error: error.message
     });
   }
 };
@@ -3799,32 +3902,32 @@ const generateExcel = async (data, res) => {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'MSR Rwanda';
     workbook.created = new Date();
-    
+
     const sheet = workbook.addWorksheet('Statistics', {
       properties: { tabColor: { argb: 'FFD100' } }
     });
-    
+
     sheet.mergeCells('A1:B1');
     const titleCell = sheet.getCell('A1');
     titleCell.value = 'MSR Rwanda - National Statistics Report';
     titleCell.font = { size: 18, bold: true, color: { argb: 'FF002B5C' } };
     titleCell.alignment = { horizontal: 'center' };
-    
+
     sheet.mergeCells('A2:B2');
     const dateCell = sheet.getCell('A2');
     dateCell.value = `Generated: ${new Date(data.exportedAt).toLocaleString()}`;
     dateCell.font = { size: 12, color: { argb: 'FF6B7280' } };
     dateCell.alignment = { horizontal: 'center' };
-    
+
     sheet.addRow([]);
-    
+
     const headers = ['Metric', 'Value'];
     const headerRow = sheet.addRow(headers);
     headerRow.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
     headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD100' } };
     headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
     headerRow.height = 30;
-    
+
     const rows = [
       ['Total Members', data.totalMembers],
       ['Active Members', data.activeMembers],
@@ -3839,22 +3942,22 @@ const generateExcel = async (data, res) => {
       ['Pending Projects', data.pendingProjects],
       ['Total Donations', `RWF ${data.totalDonations.toLocaleString()}`]
     ];
-    
+
     rows.forEach((row, index) => {
       const newRow = sheet.addRow(row);
       newRow.alignment = { vertical: 'middle' };
       newRow.height = 25;
-      
+
       if (index % 2 === 0) {
         newRow.eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
         });
       }
     });
-    
+
     sheet.getColumn(1).width = 30;
     sheet.getColumn(2).width = 25;
-    
+
     sheet.eachRow((row) => {
       row.eachCell((cell) => {
         cell.border = {
@@ -3865,19 +3968,19 @@ const generateExcel = async (data, res) => {
         };
       });
     });
-    
+
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=statistics-report-${new Date().toISOString().split('T')[0]}.xlsx`);
-    
+
     await workbook.xlsx.write(res);
     res.end();
-    
+
   } catch (error) {
     console.error('❌ Excel generation error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to generate Excel file', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate Excel file',
+      error: error.message
     });
   }
 };
@@ -3935,7 +4038,7 @@ exports.updateReport = async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`📝 Updating report ${id} by National Commissioner`);
-    
+
     const {
       title,
       description,
@@ -4031,7 +4134,7 @@ exports.resendReport = async (req, res) => {
   try {
     const { id } = req.params;
     const { destination } = req.body;
-    
+
     console.log(`📤 Resending report ${id} to ${destination} by National Commissioner`);
 
     const report = await Report.findByPk(id);
@@ -4118,9 +4221,9 @@ exports.resendReport = async (req, res) => {
 exports.generateAttendanceLink = async (req, res) => {
   try {
     const { eventId } = req.params;
-    
+
     console.log(`🔗 Generating attendance link for national event: ${eventId}`);
-    
+
     // ✅ Find the event
     const event = await Event.findByPk(eventId, {
       attributes: [
@@ -4135,11 +4238,11 @@ exports.generateAttendanceLink = async (req, res) => {
         'is_national'
       ]
     });
-    
+
     if (!event) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Event not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
       });
     }
 
@@ -4154,7 +4257,7 @@ exports.generateAttendanceLink = async (req, res) => {
     // ✅ Generate unique token
     const token = crypto.randomBytes(32).toString('hex');
     console.log('🔑 Generated token:', token);
-    
+
     // ✅ Set expiry to 30 minutes
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 30);
@@ -4162,9 +4265,9 @@ exports.generateAttendanceLink = async (req, res) => {
 
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const attendanceLink = `${baseUrl}/attendance/${token}`;
-    
+
     // ✅ Update event with attendance link
-    await event.update({ 
+    await event.update({
       attendance_token: token,
       attendance_link: attendanceLink,
       attendance_link_expires: expiresAt,
@@ -4174,13 +4277,13 @@ exports.generateAttendanceLink = async (req, res) => {
 
     // ✅ Get ALL approved registrations for this event
     const registrations = await EventRegistration.findAll({
-      where: { 
-        event_id: eventId, 
-        status: 'approved' 
+      where: {
+        event_id: eventId,
+        status: 'approved'
       },
       include: [
-        { 
-          model: Member, 
+        {
+          model: Member,
           as: 'member',
           include: [{ model: User, as: 'user' }]
         }
@@ -4233,8 +4336,8 @@ exports.generateAttendanceLink = async (req, res) => {
       attributes: ['id', 'title', 'attendance_link', 'attendance_link_expires']
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `Attendance link generated and sent to ${sentCount} registered users!`,
       data: {
         attendance_link: attendanceLink,
@@ -4249,10 +4352,10 @@ exports.generateAttendanceLink = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Generate attendance link error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to generate attendance link', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate attendance link',
+      error: error.message
     });
   }
 };

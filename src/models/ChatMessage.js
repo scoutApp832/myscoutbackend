@@ -1,5 +1,3 @@
-// backend/src/models/ChatMessage.js
-
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -72,7 +70,9 @@ module.exports = (sequelize) => {
       references: {
         model: 'users',
         key: 'id'
-      }
+      },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
     },
 
     created_at: {

@@ -6,11 +6,11 @@ const { Op } = require('sequelize');
 // ============================================
 exports.getDonationEvents = async (req, res) => {
   console.log('✅ getDonationEvents called!');
-  
+
   try {
     const events = await Event.findAll({
-      where: { 
-        status: ['upcoming', 'ongoing'] 
+      where: {
+        status: ['upcoming', 'ongoing']
       },
       attributes: ['id', 'title', 'description', 'start_date', 'end_date', 'location', 'venue', 'status', 'created_at'],
       order: [['start_date', 'ASC']]
@@ -43,7 +43,7 @@ exports.getDonationEvents = async (req, res) => {
 exports.getEvents = async (req, res) => {
   try {
     console.log('📅 Fetching events...');
-    
+
     const { category, status, search, limit = 50, offset = 0 } = req.query;
     const where = {};
 
@@ -70,7 +70,7 @@ exports.getEvents = async (req, res) => {
       const registrationCount = await EventRegistration.count({
         where: { event_id: event.id, status: 'approved' }
       });
-      
+
       const pendingCount = await EventRegistration.count({
         where: { event_id: event.id, status: 'pending' }
       });
@@ -94,9 +94,9 @@ exports.getEvents = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Get events error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to get events', 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get events',
       error: error.message,
       events: []
     });
@@ -124,7 +124,7 @@ exports.getUpcomingEvents = async (req, res) => {
       const registrationCount = await EventRegistration.count({
         where: { event_id: event.id, status: 'approved' }
       });
-      
+
       return {
         ...event.toJSON(),
         registrationCount
@@ -157,9 +157,9 @@ exports.getEventById = async (req, res) => {
     const event = await Event.findByPk(id);
 
     if (!event) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Event not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
       });
     }
 
@@ -167,11 +167,11 @@ exports.getEventById = async (req, res) => {
     const approvedCount = await EventRegistration.count({
       where: { event_id: id, status: 'approved' }
     });
-    
+
     const pendingCount = await EventRegistration.count({
       where: { event_id: id, status: 'pending' }
     });
-    
+
     const cancelledCount = await EventRegistration.count({
       where: { event_id: id, status: 'cancelled' }
     });
@@ -190,10 +190,10 @@ exports.getEventById = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Get event error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to get event', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get event',
+      error: error.message
     });
   }
 };
@@ -201,6 +201,7 @@ exports.getEventById = async (req, res) => {
 // ============================================
 // ✅ CREATE EVENT
 // ============================================
+
 exports.createEvent = async (req, res) => {
   try {
     const {
@@ -213,10 +214,14 @@ exports.createEvent = async (req, res) => {
       price,
       category,
       registration_deadline,
-      status = 'draft'
+      status = 'draft',
+      event_type,
+      venue,
+      scope,
+      is_national
     } = req.body;
 
-    // ✅ Validate required fields
+    // Validate required fields
     if (!title || !start_date || !end_date) {
       return res.status(400).json({
         success: false,
@@ -224,7 +229,7 @@ exports.createEvent = async (req, res) => {
       });
     }
 
-    // ✅ Validate dates
+    // Validate dates
     if (new Date(start_date) >= new Date(end_date)) {
       return res.status(400).json({
         success: false,
@@ -234,21 +239,38 @@ exports.createEvent = async (req, res) => {
 
     const user = req.user;
 
+    // Optional photo uploaded through eventPhotoUpload.single('photo')
+    const image_url = req.file
+      ? `/uploads/events/${req.file.filename}`
+      : null;
+
     const event = await Event.create({
       title,
       description: description || '',
       start_date,
       end_date,
       location: location || '',
-      capacity: capacity || null,
-      price: price || 0,
+      venue: venue || location || '',
+      capacity: capacity ? parseInt(capacity, 10) : null,
+      price: parseFloat(price) || 0,
       category: category || 'general',
+      event_type: event_type || 'general',
       registration_deadline: registration_deadline || null,
       status,
-      created_by: user.id
+      created_by: user.id,
+
+      // Preserve national event fields
+      scope: scope || 'national',
+      is_national:
+        is_national !== undefined
+          ? is_national === true || is_national === 'true'
+          : true,
+
+      // Optional image path
+      image_url
     });
 
-    // ✅ Log activity
+    // Preserve existing audit logging
     if (AuditLog) {
       await AuditLog.create({
         user_id: user.id,
@@ -259,20 +281,25 @@ exports.createEvent = async (req, res) => {
       });
     }
 
-    res.status(201).json({
+    console.log(`✅ Event created: "${title}" by ${user.full_name}`);
+    console.log(`🖼️ Event image: ${event.image_url || 'No photo uploaded'}`);
+
+    return res.status(201).json({
       success: true,
       message: 'Event created successfully',
       event
     });
   } catch (error) {
     console.error('❌ Create event error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to create event', 
-      error: error.message 
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create event',
+      error: error.message
     });
   }
 };
+
 
 // ============================================
 // ✅ UPDATE EVENT
@@ -284,9 +311,9 @@ exports.updateEvent = async (req, res) => {
 
     const event = await Event.findByPk(id);
     if (!event) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Event not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
       });
     }
 
@@ -318,26 +345,26 @@ exports.updateEvent = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Update event error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update event', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update event',
+      error: error.message
     });
   }
 };
 
 // ============================================
-// ✅ DELETE EVENT (CANCEL)
+// ✅ CANCEL EVENT
 // ============================================
-exports.deleteEvent = async (req, res) => {
+exports.cancelEvent = async (req, res) => {
   try {
     const { id } = req.params;
     const event = await Event.findByPk(id);
-    
+
     if (!event) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Event not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
       });
     }
 
@@ -366,16 +393,155 @@ exports.deleteEvent = async (req, res) => {
       });
     }
 
-    res.json({ 
-      success: true, 
-      message: 'Event cancelled successfully' 
+    res.json({
+      success: true,
+      message: 'Event cancelled successfully'
     });
   } catch (error) {
-    console.error('❌ Delete event error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to cancel event', 
-      error: error.message 
+    console.error('❌ Cancel event error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel event',
+      error: error.message
+    });
+  }
+};
+
+// ============================================
+// ✅ DELETE EVENT - PERMANENT
+// ============================================
+// ============================================
+// ✅ DELETE EVENT - PERMANENT
+// ============================================
+exports.deleteEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🗑️ DELETE EVENT: ${id}`);
+
+    // ============================================
+    // FIND EVENT
+    // ============================================
+    const event = await Event.findByPk(id);
+
+    if (!event) {
+      console.log(`❌ Event ${id} not found`);
+
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // ============================================
+    // CHECK ALL REGISTRATIONS
+    // ============================================
+    const registrationCount = await EventRegistration.count({
+      where: {
+        event_id: id
+      }
+    });
+
+    console.log(
+      `📊 Event ${id} registration count: ${registrationCount}`
+    );
+
+    // ============================================
+    // DO NOT DELETE EVENTS WITH REGISTRATIONS
+    // ============================================
+    if (registrationCount > 0) {
+      console.log(
+        `⚠️ Event ${id} cannot be deleted because it has ${registrationCount} registration(s)`
+      );
+
+      return res.status(400).json({
+        success: false,
+        message:
+          `Cannot delete event because it has ${registrationCount} registration(s). ` +
+          `Please cancel the event instead.`
+      });
+    }
+
+    const eventTitle = event.title;
+
+    // ============================================
+    // PERMANENT DELETE
+    // ============================================
+    console.log(
+      `🗑️ Permanently deleting event ${id}: "${eventTitle}"`
+    );
+
+    await event.destroy();
+
+    console.log(
+      `✅ Event ${id} destroy() completed`
+    );
+
+    // ============================================
+    // VERIFY THAT EVENT IS REALLY GONE
+    // ============================================
+    const verifyDeleted = await Event.findByPk(id);
+
+    if (verifyDeleted) {
+      console.error(
+        `❌ Event ${id} STILL EXISTS after destroy()`
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          'Event was not deleted from the database'
+      });
+    }
+
+    console.log(
+      `✅ Event ${id} deletion verified - event no longer exists`
+    );
+
+    // ============================================
+    // AUDIT LOG
+    // ============================================
+    if (AuditLog) {
+      try {
+        await AuditLog.create({
+          user_id: req.user.id,
+          action: 'DELETE_EVENT',
+          entity: 'event',
+          entity_id: id,
+          details:
+            `Event "${eventTitle}" permanently deleted by ${req.user.full_name}`
+        });
+
+        console.log(
+          `📝 Delete audit log created for event ${id}`
+        );
+      } catch (auditError) {
+        console.error(
+          '⚠️ Audit log failed after event deletion:',
+          auditError.message
+        );
+      }
+    }
+
+    // ============================================
+    // SUCCESS
+    // ============================================
+    return res.status(200).json({
+      success: true,
+      message: 'Event deleted successfully',
+      deletedEventId: id
+    });
+
+  } catch (error) {
+    console.error(
+      '❌ Delete event error:',
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete event',
+      error: error.message
     });
   }
 };
@@ -394,40 +560,40 @@ exports.registerForEvent = async (req, res) => {
     });
 
     if (!user || !user.member) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Member profile not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Member profile not found'
       });
     }
 
     const event = await Event.findByPk(id);
     if (!event) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Event not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
       });
     }
 
     // ✅ Check registration deadline
     if (event.registration_deadline && new Date() > new Date(event.registration_deadline)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Registration deadline has passed' 
+      return res.status(400).json({
+        success: false,
+        message: 'Registration deadline has passed'
       });
     }
 
     // ✅ Check if already registered
     const existingRegistration = await EventRegistration.findOne({
-      where: { 
-        event_id: id, 
-        user_id: userId 
+      where: {
+        event_id: id,
+        user_id: userId
       }
     });
 
     if (existingRegistration) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Already registered for this event' 
+      return res.status(400).json({
+        success: false,
+        message: 'Already registered for this event'
       });
     }
 
@@ -436,11 +602,11 @@ exports.registerForEvent = async (req, res) => {
       const approvedCount = await EventRegistration.count({
         where: { event_id: id, status: 'approved' }
       });
-      
+
       if (approvedCount >= event.capacity) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Event is full' 
+        return res.status(400).json({
+          success: false,
+          message: 'Event is full'
         });
       }
     }
@@ -456,17 +622,17 @@ exports.registerForEvent = async (req, res) => {
 
     res.json({
       success: true,
-      message: event.price > 0 
-        ? 'Registration pending payment approval' 
+      message: event.price > 0
+        ? 'Registration pending payment approval'
         : 'Registration successful',
       registration
     });
   } catch (error) {
     console.error('❌ Register for event error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to register for event', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register for event',
+      error: error.message
     });
   }
 };
@@ -484,9 +650,9 @@ exports.cancelRegistration = async (req, res) => {
     });
 
     if (!registration) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Registration not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found'
       });
     }
 
@@ -499,16 +665,16 @@ exports.cancelRegistration = async (req, res) => {
 
     await registration.update({ status: 'cancelled' });
 
-    res.json({ 
-      success: true, 
-      message: 'Registration cancelled successfully' 
+    res.json({
+      success: true,
+      message: 'Registration cancelled successfully'
     });
   } catch (error) {
     console.error('❌ Cancel registration error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to cancel registration', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel registration',
+      error: error.message
     });
   }
 };
@@ -523,9 +689,9 @@ exports.approveRegistration = async (req, res) => {
     const registration = await EventRegistration.findByPk(registrationId);
 
     if (!registration) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Registration not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found'
       });
     }
 
@@ -538,36 +704,36 @@ exports.approveRegistration = async (req, res) => {
 
     // ✅ Get event to check capacity
     const event = await Event.findByPk(registration.event_id);
-    
+
     // ✅ Check capacity before approving
     if (event && event.capacity) {
       const approvedCount = await EventRegistration.count({
-        where: { 
-          event_id: registration.event_id, 
-          status: 'approved' 
+        where: {
+          event_id: registration.event_id,
+          status: 'approved'
         }
       });
-      
+
       if (approvedCount >= event.capacity) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Event is full' 
+        return res.status(400).json({
+          success: false,
+          message: 'Event is full'
         });
       }
     }
 
     await registration.update({ status: 'approved' });
 
-    res.json({ 
-      success: true, 
-      message: 'Registration approved successfully' 
+    res.json({
+      success: true,
+      message: 'Registration approved successfully'
     });
   } catch (error) {
     console.error('❌ Approve registration error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to approve registration', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve registration',
+      error: error.message
     });
   }
 };
@@ -581,9 +747,9 @@ exports.getEventRegistrations = async (req, res) => {
 
     const event = await Event.findByPk(id);
     if (!event) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Event not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
       });
     }
 

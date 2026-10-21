@@ -1,10 +1,11 @@
 const multer = require('multer');
-const upload = require('../config/upload');
+const uploadConfig = require('../config/upload');
 
 // Single file upload middleware
 const uploadSingle = (fieldName) => {
   return (req, res, next) => {
-    const uploadMiddleware = upload.single(fieldName);
+    const uploadMiddleware = uploadConfig.upload.single(fieldName);
+
     uploadMiddleware(req, res, function (err) {
       if (err instanceof multer.MulterError) {
         return res.status(400).json({
@@ -17,6 +18,7 @@ const uploadSingle = (fieldName) => {
           message: err.message
         });
       }
+
       next();
     });
   };
@@ -25,7 +27,11 @@ const uploadSingle = (fieldName) => {
 // Multiple files upload middleware
 const uploadMultiple = (fieldName, maxCount = 5) => {
   return (req, res, next) => {
-    const uploadMiddleware = upload.array(fieldName, maxCount);
+    const uploadMiddleware = uploadConfig.upload.array(
+      fieldName,
+      maxCount
+    );
+
     uploadMiddleware(req, res, function (err) {
       if (err instanceof multer.MulterError) {
         return res.status(400).json({
@@ -38,6 +44,7 @@ const uploadMultiple = (fieldName, maxCount = 5) => {
           message: err.message
         });
       }
+
       next();
     });
   };

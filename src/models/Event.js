@@ -1,3 +1,4 @@
+
 // backend/src/models/Event.js
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
@@ -96,6 +97,12 @@ const Event = sequelize.define('Event', {
   attendance_link_generated_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+
+  // Optional event photo path; uses the existing database column.
+  image_url: {
+    type: DataTypes.STRING(255),
+    allowNull: true
   }
 }, {
   tableName: 'events',
@@ -106,7 +113,7 @@ const Event = sequelize.define('Event', {
 });
 
 // ============================================
-// ✅ FIXED: ASSOCIATIONS WITH SAFETY CHECKS
+// ASSOCIATIONS WITH SAFETY CHECKS
 // ============================================
 Event.associate = (models) => {
   try {
